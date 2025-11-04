@@ -1,0 +1,8 @@
+# ClusterLink resource for cluster-west
+apiVersion: svclink.cloudpilot.ai/v1alpha1
+kind: ClusterLink
+metadata:
+  name: c1
+spec:
+  enabled: true
+  kubeconfig: xxx

@@ -1,0 +1,15 @@
+builds:
+- id: svclink
+  dir: .  # default is .
+  main: ./cmd/svclink
+  ldflags:
+  - -s -w
+  - -extldflags "-static"
+  - -X github.com/cloudpilot-ai/svclink/pkg/version.gitVersion={{ .Env.GIT_VERSION }}
+  - -X github.com/cloudpilot-ai/svclink/pkg/version.gitCommit={{ .Env.GIT_COMMIT }}
+  - -X github.com/cloudpilot-ai/svclink/pkg/version.gitTreeState={{ .Env.GIT_TREE_STATE }}
+  - -X github.com/cloudpilot-ai/svclink/pkg/version.buildData={{ .Env.BUILD_DATE }}
+
+defaultPlatforms:
+  - linux/arm64
+  - linux/amd64

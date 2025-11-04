@@ -1,0 +1,85 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: svclink-main
+  namespace: cloudpilot
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: svclink-main
+rules:
+  # Read services across all namespaces
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list", "watch"]
+  # Create services across all namespaces
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["create"]
+  # Read and write EndpointSlices
+  - apiGroups: ["discovery.k8s.io"]
+    resources: ["endpointslices"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Read and watch ClusterLink CRDs
+  - apiGroups: ["svclink.cloudpilot.ai"]
+    resources: ["clusterlinks"]
+    verbs: ["get", "list", "watch"]
+  # Update ClusterLink status
+  - apiGroups: ["svclink.cloudpilot.ai"]
+    resources: ["clusterlinks/status"]
+    verbs: ["get", "update", "patch"]
+  # Read Namespace information
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch"]
+  # Create Namespaces
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: svclink-main
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: svclink-main
+subjects:
+  - kind: ServiceAccount
+    name: svclink-main
+    namespace: cloudpilot
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: svclink
+  namespace: cloudpilot
+  labels:
+    app: svclink
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: svclink
+  template:
+    metadata:
+      labels:
+        app: svclink
+    spec:
+      serviceAccountName: svclink-main
+      containers:
+        - name: svclink
+          image: public.ecr.aws/cloudpilotai/svclink:v0.0.1
+          imagePullPolicy: IfNotPresent
+          args:
+            - --sync-interval=30s
+            - --sync-services-to-local-cluster=false
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
