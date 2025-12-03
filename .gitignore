@@ -1,0 +1,45 @@
+# .gitignore
+
+# Binaries
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Go workspace file
+go.work
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Kubeconfig files (sensitive)
+kubeconfig*.yaml
+*.kubeconfig
+
+# Kind test files
+test-kubeconfigs/
+
+# Build artifacts
+dist/
+release/

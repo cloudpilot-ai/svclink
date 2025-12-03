@@ -1,0 +1,178 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+  name: clusterlinks.svclink.cloudpilot.ai
+spec:
+  group: svclink.cloudpilot.ai
+  names:
+    kind: ClusterLink
+    listKind: ClusterLinkList
+    plural: clusterlinks
+    singular: clusterlink
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.enabled
+      name: Enabled
+      type: boolean
+    - jsonPath: .spec.includedNamespaces
+      name: Included NS
+      priority: 1
+      type: string
+    - jsonPath: .spec.excludedNamespaces
+      name: Excluded NS
+      priority: 1
+      type: string
+    - jsonPath: .spec.excludedServices
+      name: Excluded Services
+      priority: 1
+      type: string
+    - jsonPath: .spec.excludedServiceNames
+      name: Excluded Service Names
+      priority: 1
+      type: string
+    - jsonPath: .status.connected
+      name: Connected
+      type: boolean
+    - jsonPath: .status.version
+      name: Version
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .status.lastConnected
+      name: Last Connected
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ClusterLink is a specification for a linked Kubernetes cluster
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ClusterLinkSpec defines the desired state of ClusterLink
+            properties:
+              enabled:
+                default: true
+                description: Enabled indicates whether this cluster should be actively
+                  synced
+                type: boolean
+              excludedNamespaces:
+                description: |-
+                  ExcludedNamespaces is a list of namespaces that should not be synced.
+                  Services in these namespaces will be ignored.
+                  Note: kube-system is always excluded by default and does not need to be specified here.
+                items:
+                  type: string
+                type: array
+              excludedServiceNames:
+                description: |-
+                  ExcludedServiceNames is a list of service names that should not be synced in ALL namespaces.
+                  This is more efficient than listing the same service in multiple namespaces in ExcludedServices.
+                  Note: The 'kubernetes' service is always excluded by default and does not need to be specified here.
+                  Example: ["admin-service", "internal-cache", "debug-tool"]
+                items:
+                  type: string
+                type: array
+              excludedServices:
+                description: |-
+                  ExcludedServices is a list of service names (in format namespace/service-name) that should not be synced.
+                  This allows fine-grained control to exclude specific services in specific namespaces.
+                  Note: Services in kube-system are always excluded regardless of this setting.
+                  Example: ["default/internal-db", "production/admin-api"]
+                items:
+                  type: string
+                type: array
+              includedNamespaces:
+                description: |-
+                  IncludedNamespaces is a list of namespaces that should be synced.
+                  If specified, only services in these namespaces will be synced.
+                  If empty, all namespaces except kube-system and ExcludedNamespaces will be synced.
+                  Note: kube-system is always excluded even if listed here.
+                items:
+                  type: string
+                type: array
+              kubeconfig:
+                description: Kubeconfig is the base64 encoded kubeconfig for accessing
+                  the remote cluster
+                type: string
+            required:
+            - kubeconfig
+            type: object
+          status:
+            description: ClusterLinkStatus defines the observed state of ClusterLink
+            properties:
+              conditions:
+                description: Conditions represent the latest available observations
+                  of the cluster's state
+                items:
+                  description: ClusterLinkCondition describes the state of a linked
+                    cluster
+                  properties:
+                    lastTransitionTime:
+                      description: LastTransitionTime is the last time the condition
+                        transitioned
+                      format: date-time
+                      type: string
+                    message:
+                      description: Message is a human-readable message indicating
+                        details about the transition
+                      type: string
+                    reason:
+                      description: Reason is a brief reason for the condition's last
+                        transition
+                      type: string
+                    status:
+                      description: Status of the condition (True, False, Unknown)
+                      type: string
+                    type:
+                      description: Type of condition
+                      type: string
+                  required:
+                  - status
+                  - type
+                  type: object
+                type: array
+              connected:
+                description: Connected indicates whether the cluster is currently
+                  reachable
+                type: boolean
+              error:
+                description: Error contains the last error message if connection failed
+                type: string
+              lastConnected:
+                description: LastConnected is the timestamp of the last successful
+                  connection
+                format: date-time
+                type: string
+              version:
+                description: Version is the Kubernetes version of the remote cluster
+                type: string
+            type: object
+        required:
+        - metadata
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
