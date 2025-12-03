@@ -1,0 +1,51 @@
+name: style check
+
+on:
+  pull_request:
+    branches: [ "main", "release-*" ]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  style-check:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.10'
+          cache: false
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v4
+        with:
+          version: v1.65.1
+          args: --timeout=10m --verbose
+
+      - name: verify-codegen-crdgen-update
+        run: |
+          # Install the toolchain
+          sudo ./hack/toolchain.sh
+          # Verify the updates
+          sudo ./hack/verify-gen-update.sh
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: 'fs'
+          ignore-unfixed: true
+          format: 'sarif'
+          severity: 'CRITICAL,HIGH'
