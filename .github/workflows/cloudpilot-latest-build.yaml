@@ -4,11 +4,29 @@ on:
   push:
     branches: [ "main" ]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: image-publish-${{ github.repository }}-latest
+  cancel-in-progress: false
+
 jobs:
   latest-image-build-publish:
     name: CloudPilot image publish
     runs-on: ubuntu-latest
     steps:
+      - name: Validate Alibaba Cloud mirror configuration
+        env:
+          ALIYUN_REGISTRY: ${{ vars.ALIYUN_REGISTRY }}
+          ACR_USERNAME: ${{ secrets.ALIYUN_REGISTRY_USERNAME }}
+          ACR_PASSWORD: ${{ secrets.ALIYUN_REGISTRY_PASSWORD }}
+        run: |
+          test -n "$ALIYUN_REGISTRY" || { echo 'Configure ALIYUN_REGISTRY before publishing'; exit 1; }
+          [[ "$ALIYUN_REGISTRY" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*(:[0-9]+)?$ ]] || { echo 'ALIYUN_REGISTRY must be a registry hostname'; exit 1; }
+          test -n "$ACR_USERNAME" || { echo 'Configure ALIYUN_REGISTRY_USERNAME before publishing'; exit 1; }
+          test -n "$ACR_PASSWORD" || { echo 'Configure ALIYUN_REGISTRY_PASSWORD before publishing'; exit 1; }
+
       - uses: actions/checkout@v4
         with:
           submodules: true
@@ -34,8 +52,67 @@ jobs:
       - uses: ko-build/setup-ko@v0.6
 
       - name: build and publish image
+        id: build
+        env:
+          ALIYUN_REGISTRY: ${{ vars.ALIYUN_REGISTRY }}
         run: |
           source hack/env.sh
 
           export KO_DOCKER_REPO=public.ecr.aws/cloudpilotai/svclink
-          ko build --bare github.com/cloudpilot-ai/svclink/cmd/svclink
+          SOURCE_REF=$(ko build --bare github.com/cloudpilot-ai/svclink/cmd/svclink)
+          DIGEST="${SOURCE_REF##*@}"
+
+          export SOURCE_REF="public.ecr.aws/cloudpilotai/svclink@$DIGEST"
+          export TARGET_REPOSITORY="$ALIYUN_REGISTRY/cloudpilotai/svclink"
+          export IMAGE_TAG=latest
+          mkdir -p mirror-requests
+          python3 - <<'REQUEST'
+          import hashlib, json, os, re
+          from pathlib import Path
+          source = os.environ['SOURCE_REF']
+          if not re.fullmatch(r'[^@\s]+@sha256:[a-f0-9]{64}', source):
+              raise SystemExit('Build did not return a complete SHA256 reference')
+          tag = os.environ['IMAGE_TAG']
+          stable = bool(re.fullmatch(r'v?[0-9]+\.[0-9]+\.[0-9]+', tag))
+          immutable, mutable = ([tag], []) if stable else ([], [tag])
+          request = dict(schemaVersion=1, sourceRef=source, targetRepository=os.environ['TARGET_REPOSITORY'],
+                         immutableTags=immutable, mutableTags=mutable)
+          path = Path('mirror-requests/svclink.json')
+          path.write_text(json.dumps(request, indent=2) + '\n')
+          path.with_suffix('.sha256').write_text(hashlib.sha256(path.read_bytes()).hexdigest() + '\n')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              for key, value in dict(source_ref=source, immutable_tags=json.dumps(immutable), mutable_tags=json.dumps(mutable)).items():
+                  output.write(f'{key}={value}\n')
+          REQUEST
+
+      # Release source refs may predate the delivery tool; load it from this workflow revision.
+      - name: Check out the reviewed mirror tool
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .mirror-tools
+          sparse-checkout: .github/actions/mirror-container-image
+          persist-credentials: false
+
+      - name: Mirror svclink to Alibaba Cloud
+        uses: ./.mirror-tools/.github/actions/mirror-container-image
+        with:
+          source-ref: ${{ steps.build.outputs.source_ref }}
+          target-repository: ${{ vars.ALIYUN_REGISTRY }}/cloudpilotai/svclink
+          immutable-tags-json: ${{ steps.build.outputs.immutable_tags }}
+          mutable-tags-json: ${{ steps.build.outputs.mutable_tags }}
+        env:
+          ACR_USERNAME: ${{ secrets.ALIYUN_REGISTRY_USERNAME }}
+          ACR_PASSWORD: ${{ secrets.ALIYUN_REGISTRY_PASSWORD }}
+
+      - name: Preserve mirror requests and verification receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: svclink-mirror-reports-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: ignore
+          path: |
+            mirror-requests/
+            ${{ runner.temp }}/mirror-container-image/**/request.json
+            ${{ runner.temp }}/mirror-container-image/**/request.sha256
+            ${{ runner.temp }}/mirror-container-image/**/receipt.json
