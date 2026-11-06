@@ -50,7 +50,7 @@ export GOPATH="${go_path}"
 # Install deepcopy-gen if not present
 if ! command -v deepcopy-gen &> /dev/null; then
     echo "Installing deepcopy-gen..."
-    go install k8s.io/code-generator/cmd/deepcopy-gen@latest
+    go install k8s.io/code-generator/cmd/deepcopy-gen@v0.34.1
 fi
 
 echo "Generating with deepcopy-gen"
@@ -58,7 +58,6 @@ cd "${REPO_ROOT}/pkg/apis/svclink/v1alpha1"
 deepcopy-gen \
   --go-header-file "${boilerplate}" \
   --output-file zz_generated.deepcopy.go \
-  --bounding-dirs github.com/cloudpilot-ai/svclink/pkg/apis/svclink/v1alpha1 \
   .
 
 cd "${REPO_ROOT}"

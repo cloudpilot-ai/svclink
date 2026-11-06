@@ -3,6 +3,8 @@ name: style check
 on:
   pull_request:
     branches: [ "main", "release-*" ]
+  push:
+    branches: [ "main" ]
 
 permissions:
   contents: read
@@ -17,24 +19,48 @@ jobs:
         with:
           submodules: true
 
-      - uses: actions/setup-go@v5
+      - name: Restore Go CI cache
+        id: setup-go
+        uses: cloudx-io/setup-go@0bbd76c0381c065220668df9b6694845b937aaa0 # main: restore-only support
         with:
-          go-version: '1.24.10'
-          cache: false
+          go-version: "1.24.10"
+          cache-key-prefix: ${{ github.job }}
+          cache-dependency-path: '**/go.*'
+          save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+
+      - name: Restore lint analysis cache
+        id: lint-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/golangci-lint
+          key: lint-v1.64.8-go-${{ runner.os }}-${{ runner.arch }}-1.24.10-${{ hashFiles('**/go.*', '**/vendor/modules.txt') }}-${{ hashFiles('.golangci*') }}-${{ github.sha }}
+          restore-keys: lint-v1.64.8-go-${{ runner.os }}-${{ runner.arch }}-1.24.10-${{ hashFiles('**/go.*', '**/vendor/modules.txt') }}-${{ hashFiles('.golangci*') }}-
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v4
+        env:
+          GOLANGCI_LINT_CACHE: ${{ runner.temp }}/golangci-lint
         with:
-          version: v1.65.1
+          skip-cache: true
+          version: v1.64.8
           args: --timeout=10m --verbose
 
       - name: verify-codegen-crdgen-update
         run: |
           # Install the toolchain
-          sudo ./hack/toolchain.sh
+          ./hack/toolchain.sh
           # Verify the updates
-          sudo ./hack/verify-gen-update.sh
+          ./hack/verify-gen-update.sh
+
+      - name: Save lint analysis cache
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.lint-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/golangci-lint
+          key: ${{ steps.lint-cache.outputs.cache-primary-key }}
+
   security-scan:
+    if: github.event_name == 'pull_request'
     name: Security Scan
     runs-on: ubuntu-latest
     steps:
@@ -43,7 +69,7 @@ jobs:
           submodules: true
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: 'fs'
           ignore-unfixed: true

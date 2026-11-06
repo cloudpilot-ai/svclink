@@ -14,7 +14,7 @@ export PATH=$PATH:$GOPATH/bin
 # Install controller-gen if not present
 if ! command -v controller-gen &> /dev/null; then
     echo "Installing controller-gen..."
-    go install sigs.k8s.io/controller-tools/cmd/controller-gen@latest
+    go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0
 fi
 
 echo "Generating CRD manifests with controller-gen"
