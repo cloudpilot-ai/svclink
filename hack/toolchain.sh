@@ -10,10 +10,10 @@ echo "Installing code generation tools for svclink..."
 echo ""
 
 echo "Installing deepcopy-gen..."
-go install k8s.io/code-generator/cmd/deepcopy-gen@latest
+go install k8s.io/code-generator/cmd/deepcopy-gen@v0.34.1
 
 echo "Installing controller-gen..."
-go install sigs.k8s.io/controller-tools/cmd/controller-gen@latest
+go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0
 
 echo ""
 echo "✓ All code generation tools installed successfully!"
