@@ -28,6 +28,25 @@ jobs:
         cache-key-prefix: ${{ github.job }}
         cache-dependency-path: '**/go.*'
         save: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci-cache-trial/go-cache-20261106') }}
+    - name: Locate trial Go cache paths
+      id: trial-cache-paths
+      shell: bash
+      run: 'printf ''gocache=%s\n'' "$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
+
+        printf ''gomodcache=%s\n'' "$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
+
+        '
+    - name: Restore warmed trial Go cache
+      id: trial-go-cache
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+      with:
+        path: '${{ steps.trial-cache-paths.outputs.gocache }}
+
+          ${{ steps.trial-cache-paths.outputs.gomodcache }}
+
+          '
+        key: go-cache-Linux-X64-style-check-1.24.10-ci-cache-trial/go-cache-20261106-357933cc49d560cf35f126240db57506389d9c6871c7d8bd9b3a2cf232b1cbc4-42248862070
+        fail-on-cache-miss: true
     - name: Restore lint analysis cache
       id: lint-cache
       uses: actions/cache/restore@v4
